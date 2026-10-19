@@ -7,13 +7,34 @@ const scoreEl = document.querySelector('#scoreEl')
 
 const devicePixelRatio = window.devicePixelRatio || 1
 
-canvas.width = 1024 * devicePixelRatio
-canvas.height = 576 * devicePixelRatio
+// Logical game world size. Shared by all players and the server; never changes.
+const WORLD_WIDTH = 1024
+const WORLD_HEIGHT = 576
+
+canvas.width = WORLD_WIDTH * devicePixelRatio
+canvas.height = WORLD_HEIGHT * devicePixelRatio
 
 c.scale(devicePixelRatio, devicePixelRatio)
 
-const x = canvas.width / 2
-const y = canvas.height / 2
+// Scales the display (via CSS) to the largest 16:9 box that fits the window
+function resizeGame() {
+  const scale = Math.min(
+    window.innerWidth / WORLD_WIDTH,
+    window.innerHeight / WORLD_HEIGHT
+  )
+  const container = document.querySelector('#gameContainer')
+  container.style.width = `${WORLD_WIDTH * scale}px`
+  container.style.height = `${WORLD_HEIGHT * scale}px`
+
+  // modestly scale the leaderboard text with the display
+  const leaderboard = document.querySelector('#leaderboard')
+  if (leaderboard) {
+    leaderboard.style.fontSize = `${Math.max(12, Math.round(14 * scale))}px`
+  }
+}
+
+resizeGame()
+window.addEventListener('resize', resizeGame)
 
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
@@ -254,8 +275,8 @@ document.querySelector('#usernameForm').addEventListener('submit', (event) => {
   event.preventDefault()
   document.querySelector('#usernameForm').style.display = 'none'
   socket.emit('initGame', {
-    width: canvas.width,
-    height: canvas.height,
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT,
     devicePixelRatio,
     username: document.querySelector('#usernameInput').value
   })
