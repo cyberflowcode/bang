@@ -176,12 +176,13 @@ function animate() {
   for (const id in frontEndPlayers) {
     const frontEndPlayer = frontEndPlayers[id]
 
-    // linear interpolation
+    // linear interpolation — 0.15 gives smooth catchup without the
+    // bouncy/rubbery feel that 0.5 causes at lower movement speeds
     if (frontEndPlayer.target) {
       frontEndPlayers[id].x +=
-        (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.5
+        (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.15
       frontEndPlayers[id].y +=
-        (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.5
+        (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.15
     }
 
     frontEndPlayer.draw()
