@@ -542,30 +542,168 @@ if (joystickContainer && joystickThumb) {
   }
 }
 
-// Mobile FIRE — tap anywhere on screen to shoot toward that point.
-// The joystick pointer is tracked by pointerId so we skip it here.
-const FIRE_COOLDOWN = 2000 // milliseconds — must match server FIRE_COOLDOWN
+// Mobile FIRE button — press and drag to aim, auto-fires while held
+const fireButton = document.getElementById('fireButton')
+const fireButtonCanvas = document.getElementById('fireButtonCanvas')
+const fireCtx = fireButtonCanvas.getContext('2d')
 
-canvas.addEventListener('pointerdown', (event) => {
-  // Ignore touches that started on the joystick
-  if (event.target.closest('#joystickContainer')) return
+// Get the device pixel ratio and scale the canvas
+const fireButtonDPR = window.devicePixelRatio || 1
+fireButtonCanvas.width = 100 * fireButtonDPR
+fireButtonCanvas.height = 100 * fireButtonDPR
+fireCtx.scale(fireButtonDPR, fireButtonDPR)
 
+let fireButtonActive = false
+let fireButtonAimX = 50  // aim point relative to button center
+let fireButtonAimY = 50
+let fireButtonInterval = null
+
+function drawFireButton() {
+  const size = 100
+  const center = size / 2
+
+  // Background circle
+  fireCtx.fillStyle = fireButtonActive ? 'rgba(239, 68, 68, 0.8)' : 'rgba(239, 68, 68, 0.5)'
+  fireCtx.beginPath()
+  fireCtx.arc(center, center, 48, 0, Math.PI * 2)
+  fireCtx.fill()
+
+  // Crosshair — draw + cursor pointing toward aim position
+  fireCtx.strokeStyle = fireButtonActive ? 'rgba(248, 113, 113, 1)' : 'rgba(239, 200, 200, 0.8)'
+  fireCtx.lineWidth = 2
+  fireCtx.lineCap = 'round'
+
+  // Vertical line of crosshair
+  fireCtx.beginPath()
+  fireCtx.moveTo(center, center - 15)
+  fireCtx.lineTo(center, center - 5)
+  fireCtx.stroke()
+
+  fireCtx.beginPath()
+  fireCtx.moveTo(center, center + 15)
+  fireCtx.lineTo(center, center + 5)
+  fireCtx.stroke()
+
+  // Horizontal line of crosshair
+  fireCtx.beginPath()
+  fireCtx.moveTo(center - 15, center)
+  fireCtx.lineTo(center - 5, center)
+  fireCtx.stroke()
+
+  fireCtx.beginPath()
+  fireCtx.moveTo(center + 15, center)
+  fireCtx.lineTo(center + 5, center)
+  fireCtx.stroke()
+
+  // Aim indicator — arrow pointing toward drag direction
+  if (fireButtonActive && (Math.abs(fireButtonAimX - center) > 5 || Math.abs(fireButtonAimY - center) > 5)) {
+    const angle = Math.atan2(fireButtonAimY - center, fireButtonAimX - center)
+    const arrowX = center + Math.cos(angle) * 20
+    const arrowY = center + Math.sin(angle) * 20
+
+    fireCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+    fireCtx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    fireCtx.lineWidth = 1.5
+
+    // Arrow line
+    fireCtx.beginPath()
+    fireCtx.moveTo(center, center)
+    fireCtx.lineTo(arrowX, arrowY)
+    fireCtx.stroke()
+
+    // Arrow head
+    const headAngle1 = angle + Math.PI * 0.85
+    const headAngle2 = angle - Math.PI * 0.85
+    fireCtx.beginPath()
+    fireCtx.moveTo(arrowX, arrowY)
+    fireCtx.lineTo(arrowX + Math.cos(headAngle1) * 6, arrowY + Math.sin(headAngle1) * 6)
+    fireCtx.lineTo(arrowX + Math.cos(headAngle2) * 6, arrowY + Math.sin(headAngle2) * 6)
+    fireCtx.closePath()
+    fireCtx.fill()
+  }
+
+  // Center dot
+  fireCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+  fireCtx.beginPath()
+  fireCtx.arc(center, center, 2, 0, Math.PI * 2)
+  fireCtx.fill()
+}
+
+// Draw initial button
+drawFireButton()
+
+function shootFromFireButton() {
   const player = frontEndPlayers[socket.id]
   if (!player) return
 
-  // Convert tap position from CSS pixels → logical world coordinates
-  const rect = canvas.getBoundingClientRect()
-  const worldX = (event.clientX - rect.left) * (WORLD_WIDTH / rect.width)
-  const worldY = (event.clientY - rect.top) * (WORLD_HEIGHT / rect.height)
-
-  const angle = Math.atan2(worldY - player.y, worldX - player.x)
+  // Get angle from button center to aim point
+  const angle = Math.atan2(fireButtonAimY - 50, fireButtonAimX - 50)
 
   socket.emit('shoot', {
     x: player.x,
     y: player.y,
     angle
   })
+}
+
+fireButton.addEventListener('pointerdown', (event) => {
+  event.preventDefault()
+  event.stopPropagation()
+
+  fireButtonActive = true
+  fireButton.classList.add('active')
+  fireButton.setPointerCapture(event.pointerId)
+
+  // Immediate shot
+  shootFromFireButton()
+
+  // Continuous fire while held
+  fireButtonInterval = setInterval(shootFromFireButton, FIRE_COOLDOWN)
+
+  drawFireButton()
 })
+
+fireButton.addEventListener('pointermove', (event) => {
+  if (!fireButtonActive) return
+  event.preventDefault()
+
+  // Get position relative to button
+  const rect = fireButton.getBoundingClientRect()
+  fireButtonAimX = event.clientX - rect.left
+  fireButtonAimY = event.clientY - rect.top
+
+  // Clamp to button bounds
+  fireButtonAimX = Math.max(5, Math.min(95, fireButtonAimX))
+  fireButtonAimY = Math.max(5, Math.min(95, fireButtonAimY))
+
+  drawFireButton()
+})
+
+const endFireButton = (event) => {
+  if (!fireButtonActive) return
+  event.preventDefault()
+
+  fireButtonActive = false
+  fireButton.classList.remove('active')
+
+  if (fireButtonInterval) {
+    clearInterval(fireButtonInterval)
+    fireButtonInterval = null
+  }
+
+  if (fireButton.hasPointerCapture(event.pointerId)) {
+    fireButton.releasePointerCapture(event.pointerId)
+  }
+
+  fireButtonAimX = 50
+  fireButtonAimY = 50
+
+  drawFireButton()
+}
+
+fireButton.addEventListener('pointerup', endFireButton)
+fireButton.addEventListener('pointercancel', endFireButton)
+fireButton.addEventListener('pointerleave', endFireButton)
 
 // Reset all input states on window blur/visibility change
 window.addEventListener('blur', () => {

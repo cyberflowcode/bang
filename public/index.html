@@ -131,6 +131,40 @@
         }
       }
 
+      #fireButton {
+        position: absolute;
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        right: calc(20px + env(safe-area-inset-right));
+        width: 100px;
+        height: 100px;
+        pointer-events: auto;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      #fireButtonCanvas {
+        display: block;
+        background: rgba(239, 68, 68, 0.5);
+        border: 2px solid rgba(239, 68, 68, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+      }
+
+      #fireButton.active #fireButtonCanvas {
+        background: rgba(239, 68, 68, 0.8);
+        border-color: rgba(248, 113, 113, 1);
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
+      }
+
+      @media (max-height: 500px) and (orientation: landscape) {
+        #fireButton {
+          width: 80px;
+          height: 80px;
+          bottom: calc(10px + env(safe-area-inset-bottom));
+          right: calc(10px + env(safe-area-inset-right));
+        }
+      }
+
     </style>
   </head>
   <body>
@@ -244,6 +278,11 @@
         <div id="joystickBase">
           <div id="joystickThumb"></div>
         </div>
+      </div>
+
+      <!-- Fire button with drag-to-aim -->
+      <div id="fireButton">
+        <canvas id="fireButtonCanvas" width="100" height="100" style="display: block; width: 100%; height: 100%;"></canvas>
       </div>
     </div>
 
