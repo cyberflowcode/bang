@@ -315,6 +315,10 @@ const FIRE_COOLDOWN = 2000
 const playerInputs = []
 let sequenceNumber = 0
 
+// Crosshair on canvas (controlled by fire button drag)
+let fireButtonCrosshairX = WORLD_WIDTH / 2
+let fireButtonCrosshairY = WORLD_HEIGHT / 2
+
 // Mobile movement integration - calculate movement from joystick
 function getJoystickMovement() {
   if (!joystick.active || joystick.magnitude < JOYSTICK_DEAD_ZONE) {
@@ -563,10 +567,6 @@ let fireButtonActive = false
 let fireButtonAimX = 50  // aim point relative to button center
 let fireButtonAimY = 50
 let fireButtonInterval = null
-
-// Crosshair on canvas (controlled by fire button drag)
-let fireButtonCrosshairX = WORLD_WIDTH / 2
-let fireButtonCrosshairY = WORLD_HEIGHT / 2
 
 function drawFireButton() {
   if (!fireCtx) return
