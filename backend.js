@@ -7,70 +7,52 @@ const server = http.createServer(app)
 const { Server } = require('socket.io')
 const io = new Server(server, { pingInterval: 2000, pingTimeout: 5000 })
 
-// Database setup - supports SQLite (local) and PostgreSQL (Railway)
-let db
+// PostgreSQL database setup
+const { Pool } = require('pg')
 
-const DATABASE_URL = process.env.DATABASE_URL
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://localhost:5432/bang'
 
-if (DATABASE_URL) {
-  // PostgreSQL for Railway deployment
-  const { Pool } = require('pg')
-  const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  })
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+})
 
-  db = {
-    async exec(sql) {
-      await pool.query(sql)
-    },
-    prepare(sql) {
-      // Convert ? to $1, $2, etc. for PostgreSQL
-      let paramIndex = 1
-      const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
+const db = {
+  async exec(sql) {
+    await pool.query(sql)
+  },
+  prepare(sql) {
+    // Convert ? to $1, $2, etc. for PostgreSQL
+    let paramIndex = 1
+    const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
 
-      return {
-        run(...params) {
-          return pool.query(pgSql, params)
-        },
-        get(...params) {
-          return pool.query(pgSql, params).then(result => result.rows[0])
-        },
-        all(...params) {
-          return pool.query(pgSql, params).then(result => result.rows)
-        }
+    return {
+      async run(...params) {
+        return await pool.query(pgSql, params)
+      },
+      async get(...params) {
+        const result = await pool.query(pgSql, params)
+        return result.rows[0]
+      },
+      async all(...params) {
+        const result = await pool.query(pgSql, params)
+        return result.rows
       }
     }
   }
-
-  // Initialize PostgreSQL schema
-  pool.query(`
-    CREATE TABLE IF NOT EXISTS players (
-      player_id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      lifetime_kills INTEGER DEFAULT 0,
-      created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_lifetime_kills ON players(lifetime_kills DESC);
-  `).catch(err => console.error('PostgreSQL schema init error:', err))
-} else {
-  // SQLite for local development
-  const Database = require('better-sqlite3')
-  db = new Database('game_stats.db')
-
-  // Initialize SQLite schema
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS players (
-      player_id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      lifetime_kills INTEGER DEFAULT 0,
-      created_at INTEGER DEFAULT (strftime('%s', 'now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_lifetime_kills ON players(lifetime_kills DESC);
-  `)
 }
+
+// Initialize PostgreSQL schema
+pool.query(`
+  CREATE TABLE IF NOT EXISTS players (
+    player_id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    lifetime_kills INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_lifetime_kills ON players(lifetime_kills DESC);
+`).catch(err => console.error('PostgreSQL schema init error:', err))
 
 const port = process.env.PORT || 3000
 
