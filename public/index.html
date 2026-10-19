@@ -119,73 +119,6 @@
         transform: translate(0, 0);
       }
 
-      #fireButton {
-        position: absolute;
-        bottom: calc(20px + env(safe-area-inset-bottom));
-        right: calc(20px + env(safe-area-inset-right));
-        width: 100px;
-        height: 100px;
-        background: rgba(239, 68, 68, 0.5);
-        border: 4px solid rgba(239, 68, 68, 0.8);
-        border-radius: 50%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        pointer-events: auto;
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        cursor: pointer;
-        box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
-      }
-
-      #fireButton:active,
-      #fireButton.active {
-        background: rgba(239, 68, 68, 0.8);
-        border-color: rgba(248, 113, 113, 1);
-        transform: scale(0.95);
-        box-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
-      }
-
-      #fireButton .crosshair {
-        width: 24px;
-        height: 24px;
-        position: relative;
-        margin-bottom: 4px;
-      }
-
-      #fireButton .crosshair::before,
-      #fireButton .crosshair::after {
-        content: '';
-        position: absolute;
-        background: white;
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-      }
-
-      #fireButton .crosshair::before {
-        width: 100%;
-        height: 3px;
-        top: 50%;
-        left: 0;
-        transform: translateY(-50%);
-      }
-
-      #fireButton .crosshair::after {
-        width: 3px;
-        height: 100%;
-        left: 50%;
-        top: 0;
-        transform: translateX(-50%);
-      }
-
-      #fireButton span {
-        color: white;
-        font-weight: bold;
-        font-size: 12px;
-        text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
-        letter-spacing: 1px;
-      }
     </style>
   </head>
   <body>
@@ -274,10 +207,6 @@
           <div id="joystickBase">
             <div id="joystickThumb"></div>
           </div>
-        </div>
-        <div id="fireButton">
-          <div class="crosshair"></div>
-          <span>FIRE</span>
         </div>
       </div>
     </div>

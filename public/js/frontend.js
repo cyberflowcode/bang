@@ -464,159 +464,48 @@ if (joystickContainer && joystickThumb) {
   }
 }
 
-// Mobile FIRE button handler
+// Mobile FIRE — tap anywhere on screen to shoot toward that point.
+// The joystick pointer is tracked by pointerId so we skip it here.
 const FIRE_COOLDOWN = 2000 // milliseconds — must match server FIRE_COOLDOWN
-let fireInterval = null
 
-const fireButton = document.getElementById('fireButton')
-if (fireButton) {
-  const shootInMovementDirection = () => {
-    const player = frontEndPlayers[socket.id]
-    if (!player) return
+canvas.addEventListener('pointerdown', (event) => {
+  // Ignore the joystick's pointer
+  if (joystick.active && event.pointerId === joystick.pointerId) return
 
-    let angle
+  const player = frontEndPlayers[socket.id]
+  if (!player) return
 
-    // If joystick is active, shoot in joystick direction
-    if (joystick.active && joystick.magnitude >= JOYSTICK_DEAD_ZONE) {
-      angle = Math.atan2(joystick.deltaY, joystick.deltaX)
-    } else {
-      // Otherwise shoot toward the nearest enemy
-      let nearestEnemy = null
-      let nearestDistance = Infinity
+  // Convert tap position from CSS pixels → logical world coordinates
+  const rect = canvas.getBoundingClientRect()
+  const worldX = (event.clientX - rect.left) * (WORLD_WIDTH / rect.width)
+  const worldY = (event.clientY - rect.top) * (WORLD_HEIGHT / rect.height)
 
-      for (const id in frontEndPlayers) {
-        if (id === socket.id) continue
+  const angle = Math.atan2(worldY - player.y, worldX - player.x)
 
-        const enemy = frontEndPlayers[id]
-        const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y)
-
-        if (distance < nearestDistance) {
-          nearestDistance = distance
-          nearestEnemy = enemy
-        }
-      }
-
-      if (nearestEnemy) {
-        angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x)
-      } else {
-        // No enemies, shoot in a default direction (up)
-        angle = -Math.PI / 2
-      }
-    }
-
-    socket.emit('shoot', {
-      x: player.x,
-      y: player.y,
-      angle
-    })
-  }
-
-  // Pointer events (for modern browsers)
-  fireButton.addEventListener('pointerdown', (event) => {
-    event.preventDefault()
-    fireButton.classList.add('active')
-    fireButton.setPointerCapture(event.pointerId)
-
-    // Clear any existing interval
-    if (fireInterval) {
-      clearInterval(fireInterval)
-      fireInterval = null
-    }
-
-    // Immediate shot
-    shootInMovementDirection()
-
-    // Continuous shooting
-    fireInterval = setInterval(shootInMovementDirection, FIRE_COOLDOWN)
+  socket.emit('shoot', {
+    x: player.x,
+    y: player.y,
+    angle
   })
-
-  const endFire = (event) => {
-    event.preventDefault()
-    fireButton.classList.remove('active')
-
-    if (fireInterval) {
-      clearInterval(fireInterval)
-      fireInterval = null
-    }
-
-    if (fireButton.hasPointerCapture(event.pointerId)) {
-      fireButton.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  fireButton.addEventListener('pointerup', endFire)
-  fireButton.addEventListener('pointercancel', endFire)
-  fireButton.addEventListener('pointerleave', endFire)
-
-  // Touch events fallback — only register on browsers WITHOUT PointerEvent
-  // support (see the joystick block above for the full rationale).
-  if (!window.PointerEvent) {
-    fireButton.addEventListener('touchstart', (event) => {
-      event.preventDefault()
-      fireButton.classList.add('active')
-
-      // Clear any existing interval
-      if (fireInterval) {
-        clearInterval(fireInterval)
-        fireInterval = null
-      }
-
-      // Immediate shot
-      shootInMovementDirection()
-
-      // Continuous shooting
-      fireInterval = setInterval(shootInMovementDirection, FIRE_COOLDOWN)
-    }, { passive: false })
-
-    const endFireTouch = (event) => {
-      event.preventDefault()
-      fireButton.classList.remove('active')
-
-      if (fireInterval) {
-        clearInterval(fireInterval)
-        fireInterval = null
-      }
-    }
-
-    fireButton.addEventListener('touchend', endFireTouch)
-    fireButton.addEventListener('touchcancel', endFireTouch)
-  }
-}
+})
 
 // Reset all input states on window blur/visibility change
 window.addEventListener('blur', () => {
-  // Reset keyboard state
   keys.w.pressed = false
   keys.a.pressed = false
   keys.s.pressed = false
   keys.d.pressed = false
 
-  // Reset joystick state
   joystick.active = false
   joystick.pointerId = null
   joystick.deltaX = 0
   joystick.deltaY = 0
   joystick.magnitude = 0
-  if (joystickThumb) {
-    joystickThumb.style.transform = 'translate(0, 0)'
-  }
-
-  // Reset fire button
-  const fireButton = document.getElementById('fireButton')
-  if (fireButton) {
-    fireButton.classList.remove('active')
-  }
-
-  // Clear fire interval
-  if (fireInterval) {
-    clearInterval(fireInterval)
-    fireInterval = null
-  }
+  if (joystickThumb) joystickThumb.style.transform = 'translate(0, 0)'
 })
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    // Same reset as blur
     keys.w.pressed = false
     keys.a.pressed = false
     keys.s.pressed = false
@@ -627,19 +516,6 @@ document.addEventListener('visibilitychange', () => {
     joystick.deltaX = 0
     joystick.deltaY = 0
     joystick.magnitude = 0
-    if (joystickThumb) {
-      joystickThumb.style.transform = 'translate(0, 0)'
-    }
-
-    const fireButton = document.getElementById('fireButton')
-    if (fireButton) {
-      fireButton.classList.remove('active')
-    }
-
-    // Clear fire interval
-    if (fireInterval) {
-      clearInterval(fireInterval)
-      fireInterval = null
-    }
+    if (joystickThumb) joystickThumb.style.transform = 'translate(0, 0)'
   }
 })
