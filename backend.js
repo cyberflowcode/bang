@@ -196,6 +196,11 @@ io.on('connection', (socket) => {
     }
   })
 
+  // Ping measurement — client sends this, server acks immediately
+  socket.on('ping_check', (callback) => {
+    if (typeof callback === 'function') callback()
+  })
+
   socket.on('initGame', async ({ username, width, height }) => {
     // Initialize or update player in database
     const stmt = db.prepare(`

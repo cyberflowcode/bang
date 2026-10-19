@@ -150,6 +150,29 @@
       </div>
       <canvas></canvas>
 
+      <!-- FPS / Ping HUD -->
+      <div id="statsHud" style="
+        position: absolute;
+        top: 0;
+        right: 0;
+        color: white;
+        padding: 6px 10px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        user-select: none;
+        background: rgba(10, 14, 26, 0.75);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 0 0 0 8px;
+        z-index: 10;
+        pointer-events: none;
+        text-align: right;
+        line-height: 1.6;
+      ">
+        <div id="fpsDisplay" style="color: #4ade80;">FPS: --</div>
+        <div id="pingDisplay" style="color: #60a5fa;">PING: -- ms</div>
+      </div>
+
       <!-- username input -->
       <div
         style="

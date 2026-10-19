@@ -188,10 +188,54 @@ socket.on('updatePlayers', (backEndPlayers) => {
   }
 })
 
+// ── FPS counter ─────────────────────────────────────────────────────────────
+const fpsDisplay = document.getElementById('fpsDisplay')
+const pingDisplay = document.getElementById('pingDisplay')
+const FPS_CAP_DISPLAY = 90   // never show more than 90 in the readout
+
+let lastFrameTime = performance.now()
+let frameCount = 0
+let displayedFps = 0
+
+// ── Ping measurement ─────────────────────────────────────────────────────────
+let currentPing = 0
+
+function measurePing() {
+  const start = performance.now()
+  socket.emit('ping_check', () => {
+    currentPing = Math.round(performance.now() - start)
+  })
+}
+
+// Measure every 2 seconds
+setInterval(measurePing, 2000)
+measurePing()
+
+// ── Animation loop ───────────────────────────────────────────────────────────
 let animationId
 function animate() {
   animationId = requestAnimationFrame(animate)
-  // c.fillStyle = 'rgba(0, 0, 0, 0.1)'
+
+  // ── FPS calculation ──────────────────────────────────────────────────────
+  const now = performance.now()
+  frameCount++
+  const elapsed = now - lastFrameTime
+  if (elapsed >= 500) {               // update display every 500ms
+    displayedFps = Math.min(FPS_CAP_DISPLAY, Math.round(frameCount * 1000 / elapsed))
+    frameCount = 0
+    lastFrameTime = now
+
+    // Colour-code FPS: green ≥60, yellow 30-59, red <30
+    const fpsColor = displayedFps >= 60 ? '#4ade80' : displayedFps >= 30 ? '#facc15' : '#f87171'
+    fpsDisplay.style.color = fpsColor
+    fpsDisplay.textContent = `FPS: ${displayedFps}`
+
+    // Colour-code ping: green <80ms, yellow 80-150ms, red >150ms
+    const pingColor = currentPing < 80 ? '#4ade80' : currentPing < 150 ? '#facc15' : '#f87171'
+    pingDisplay.style.color = pingColor
+    pingDisplay.textContent = `PING: ${currentPing} ms`
+  }
+
   c.clearRect(0, 0, canvas.width, canvas.height)
 
   for (const id in frontEndPlayers) {
