@@ -39,6 +39,27 @@ window.addEventListener('resize', resizeGame)
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
 
+socket.on('updateLeaderboard', (leaderboardData) => {
+  const leaderboardEl = document.querySelector('#topKillsLeaderboard')
+  if (!leaderboardEl) return
+
+  leaderboardEl.innerHTML = leaderboardData.map((player, index) => {
+    let rankStyle = ''
+    if (index === 0) {
+      rankStyle = 'color: #ffd700; font-weight: bold;' // Gold
+    } else if (index === 1) {
+      rankStyle = 'color: #c0c0c0; font-weight: bold;' // Silver
+    } else if (index === 2) {
+      rankStyle = 'color: #cd7f32; font-weight: bold;' // Bronze
+    }
+
+    return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+      <span style="${rankStyle}">${index + 1}. ${player.username}</span>
+      <span style="color: #94a3b8;">${player.lifetimeKills}</span>
+    </div>`
+  }).join('')
+})
+
 socket.on('updateProjectiles', (backEndProjectiles) => {
   for (const id in backEndProjectiles) {
     const backEndProjectile = backEndProjectiles[id]
@@ -194,36 +215,66 @@ const keys = {
   }
 }
 
+// Mobile joystick state
+const joystick = {
+  active: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  deltaX: 0,
+  deltaY: 0,
+  magnitude: 0
+}
+
+// Joystick configuration
+const JOYSTICK_MAX_DISTANCE = 35
+const JOYSTICK_DEAD_ZONE = 5
+
 const SPEED = 5
 const playerInputs = []
 let sequenceNumber = 0
+
+// Mobile movement integration - calculate movement from joystick
+function getJoystickMovement() {
+  if (!joystick.active || joystick.magnitude < JOYSTICK_DEAD_ZONE) {
+    return { dx: 0, dy: 0 }
+  }
+
+  // Normalize and scale to SPEED
+  const normalizedMagnitude = Math.min(joystick.magnitude, JOYSTICK_MAX_DISTANCE) / JOYSTICK_MAX_DISTANCE
+  const dx = (joystick.deltaX / JOYSTICK_MAX_DISTANCE) * SPEED * normalizedMagnitude
+  const dy = (joystick.deltaY / JOYSTICK_MAX_DISTANCE) * SPEED * normalizedMagnitude
+
+  return { dx, dy }
+}
+
 setInterval(() => {
-  if (keys.w.pressed) {
-    sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED })
-    // frontEndPlayers[socket.id].y -= SPEED
-    socket.emit('keydown', { keycode: 'KeyW', sequenceNumber })
+  let dx = 0
+  let dy = 0
+
+  // Keyboard movement
+  if (keys.w.pressed) dy -= SPEED
+  if (keys.a.pressed) dx -= SPEED
+  if (keys.s.pressed) dy += SPEED
+  if (keys.d.pressed) dx += SPEED
+
+  // Joystick movement (overrides keyboard if active)
+  if (joystick.active) {
+    const joystickMove = getJoystickMovement()
+    dx = joystickMove.dx
+    dy = joystickMove.dy
   }
 
-  if (keys.a.pressed) {
+  // Emit movement if any
+  if (dx !== 0 || dy !== 0) {
     sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: -SPEED, dy: 0 })
-    // frontEndPlayers[socket.id].x -= SPEED
-    socket.emit('keydown', { keycode: 'KeyA', sequenceNumber })
-  }
+    playerInputs.push({ sequenceNumber, dx, dy })
 
-  if (keys.s.pressed) {
-    sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: 0, dy: SPEED })
-    // frontEndPlayers[socket.id].y += SPEED
-    socket.emit('keydown', { keycode: 'KeyS', sequenceNumber })
-  }
-
-  if (keys.d.pressed) {
-    sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: SPEED, dy: 0 })
-    // frontEndPlayers[socket.id].x += SPEED
-    socket.emit('keydown', { keycode: 'KeyD', sequenceNumber })
+    // Emit combined movement as keydown events for server compatibility
+    if (dy < 0) socket.emit('keydown', { keycode: 'KeyW', sequenceNumber })
+    if (dx < 0) socket.emit('keydown', { keycode: 'KeyA', sequenceNumber })
+    if (dy > 0) socket.emit('keydown', { keycode: 'KeyS', sequenceNumber })
+    if (dx > 0) socket.emit('keydown', { keycode: 'KeyD', sequenceNumber })
   }
 }, 15)
 
@@ -280,4 +331,214 @@ document.querySelector('#usernameForm').addEventListener('submit', (event) => {
     devicePixelRatio,
     username: document.querySelector('#usernameInput').value
   })
+})
+
+// Mobile joystick event handlers
+const joystickContainer = document.getElementById('joystickContainer')
+const joystickThumb = document.getElementById('joystickThumb')
+
+if (joystickContainer && joystickThumb) {
+  joystickContainer.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    joystick.active = true
+    joystick.pointerId = event.pointerId
+    joystick.startX = event.clientX
+    joystick.startY = event.clientY
+    joystick.deltaX = 0
+    joystick.deltaY = 0
+    joystick.magnitude = 0
+
+    joystickContainer.setPointerCapture(event.pointerId)
+  })
+
+  joystickContainer.addEventListener('pointermove', (event) => {
+    if (!joystick.active || event.pointerId !== joystick.pointerId) return
+
+    event.preventDefault()
+
+    const deltaX = event.clientX - joystick.startX
+    const deltaY = event.clientY - joystick.startY
+    const magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    // Clamp to max distance
+    const clampedMagnitude = Math.min(magnitude, JOYSTICK_MAX_DISTANCE)
+    const angle = Math.atan2(deltaY, deltaX)
+
+    joystick.deltaX = Math.cos(angle) * clampedMagnitude
+    joystick.deltaY = Math.sin(angle) * clampedMagnitude
+    joystick.magnitude = clampedMagnitude
+
+    // Update thumb position
+    joystickThumb.style.transform = `translate(${joystick.deltaX}px, ${joystick.deltaY}px)`
+  })
+
+  const endJoystick = (event) => {
+    if (!joystick.active || event.pointerId !== joystick.pointerId) return
+
+    event.preventDefault()
+
+    joystick.active = false
+    joystick.pointerId = null
+    joystick.deltaX = 0
+    joystick.deltaY = 0
+    joystick.magnitude = 0
+
+    joystickThumb.style.transform = 'translate(0, 0)'
+
+    if (joystickContainer.hasPointerCapture(event.pointerId)) {
+      joystickContainer.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  joystickContainer.addEventListener('pointerup', endJoystick)
+  joystickContainer.addEventListener('pointercancel', endJoystick)
+  joystickContainer.addEventListener('pointerleave', endJoystick)
+}
+
+// Mobile FIRE button handler
+const fireButton = document.getElementById('fireButton')
+const FIRE_COOLDOWN = 200 // milliseconds
+let fireInterval = null
+
+if (fireButton) {
+  const shootInMovementDirection = () => {
+    const player = frontEndPlayers[socket.id]
+    if (!player) return
+
+    let angle
+
+    // If joystick is active, shoot in joystick direction
+    if (joystick.active && joystick.magnitude >= JOYSTICK_DEAD_ZONE) {
+      angle = Math.atan2(joystick.deltaY, joystick.deltaX)
+    } else {
+      // Otherwise shoot toward the nearest enemy
+      let nearestEnemy = null
+      let nearestDistance = Infinity
+
+      for (const id in frontEndPlayers) {
+        if (id === socket.id) continue
+
+        const enemy = frontEndPlayers[id]
+        const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y)
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance
+          nearestEnemy = enemy
+        }
+      }
+
+      if (nearestEnemy) {
+        angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x)
+      } else {
+        // No enemies, shoot in a default direction (right)
+        angle = 0
+      }
+    }
+
+    socket.emit('shoot', {
+      x: player.x,
+      y: player.y,
+      angle
+    })
+  }
+
+  // Store interval ID for cleanup
+  fireButton.dataset.fireInterval = 'null'
+
+  fireButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    fireButton.classList.add('active')
+    fireButton.setPointerCapture(event.pointerId)
+
+    // Clear any existing interval
+    if (fireInterval) {
+      clearInterval(fireInterval)
+      fireInterval = null
+    }
+
+    // Immediate shot
+    shootInMovementDirection()
+
+    // Continuous shooting
+    fireInterval = setInterval(shootInMovementDirection, FIRE_COOLDOWN)
+  })
+
+  const endFire = (event) => {
+    event.preventDefault()
+    fireButton.classList.remove('active')
+
+    if (fireInterval) {
+      clearInterval(fireInterval)
+      fireInterval = null
+    }
+
+    if (fireButton.hasPointerCapture(event.pointerId)) {
+      fireButton.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  fireButton.addEventListener('pointerup', endFire)
+  fireButton.addEventListener('pointercancel', endFire)
+  fireButton.addEventListener('pointerleave', endFire)
+}
+
+// Reset all input states on window blur/visibility change
+window.addEventListener('blur', () => {
+  // Reset keyboard state
+  keys.w.pressed = false
+  keys.a.pressed = false
+  keys.s.pressed = false
+  keys.d.pressed = false
+
+  // Reset joystick state
+  joystick.active = false
+  joystick.pointerId = null
+  joystick.deltaX = 0
+  joystick.deltaY = 0
+  joystick.magnitude = 0
+  if (joystickThumb) {
+    joystickThumb.style.transform = 'translate(0, 0)'
+  }
+
+  // Reset fire button
+  const fireButton = document.getElementById('fireButton')
+  if (fireButton) {
+    fireButton.classList.remove('active')
+  }
+
+  // Clear fire interval
+  if (fireInterval) {
+    clearInterval(fireInterval)
+    fireInterval = null
+  }
+})
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Same reset as blur
+    keys.w.pressed = false
+    keys.a.pressed = false
+    keys.s.pressed = false
+    keys.d.pressed = false
+
+    joystick.active = false
+    joystick.pointerId = null
+    joystick.deltaX = 0
+    joystick.deltaY = 0
+    joystick.magnitude = 0
+    if (joystickThumb) {
+      joystickThumb.style.transform = 'translate(0, 0)'
+    }
+
+    const fireButton = document.getElementById('fireButton')
+    if (fireButton) {
+      fireButton.classList.remove('active')
+    }
+
+    // Clear fire interval
+    if (fireInterval) {
+      clearInterval(fireInterval)
+      fireInterval = null
+    }
+  }
 })
