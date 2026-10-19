@@ -71,6 +71,20 @@
         pointer-events: none;
       }
 
+      /* Show mobile controls on touch devices */
+      @media (pointer: coarse) {
+        #mobileControls {
+          display: block;
+        }
+      }
+
+      /* Additional detection for mobile browsers */
+      @media (max-width: 768px) {
+        #mobileControls {
+          display: block;
+        }
+      }
+
       /* Hide mobile controls when username form is visible */
       #usernameForm:not([style*="display: none"]) ~ #mobileControls {
         display: none !important;
@@ -106,7 +120,6 @@
         border: 2px solid rgba(96, 165, 250, 0.8);
         border-radius: 50%;
         transform: translate(0, 0);
-        transition: transform 0.05s ease-out;
       }
 
       #fireButton {
