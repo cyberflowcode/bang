@@ -160,6 +160,9 @@ socket.on('updatePlayers', (backEndPlayers) => {
 
       if (id === socket.id) {
         document.querySelector('#usernameForm').style.display = 'block'
+        // Hide mobile controls while login form is showing
+        const mobileControls = document.getElementById('mobileControls')
+        if (mobileControls) mobileControls.classList.add('hidden')
       }
 
       delete frontEndPlayers[id]
@@ -329,6 +332,11 @@ window.addEventListener('keyup', (event) => {
 document.querySelector('#usernameForm').addEventListener('submit', (event) => {
   event.preventDefault()
   document.querySelector('#usernameForm').style.display = 'none'
+
+  // Show mobile controls now that the form is gone
+  const mobileControls = document.getElementById('mobileControls')
+  if (mobileControls) mobileControls.classList.remove('hidden')
+
   socket.emit('initGame', {
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,

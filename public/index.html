@@ -67,26 +67,23 @@
         left: 0;
         right: 0;
         bottom: 0;
-        z-index: 20;
-        pointer-events: none;
+        /* above canvas (z-index:1) and leaderboard (z-index:10),
+           below username form (z-index:30) */
+        z-index: 25;
+        pointer-events: none; /* container itself is transparent */
       }
 
-      /* Show mobile controls on touch devices */
+      /* Only show on real touch/coarse-pointer devices */
       @media (pointer: coarse) {
         #mobileControls {
           display: block;
         }
       }
 
-      /* Show mobile controls on smaller screens */
-      @media (max-width: 1024px) {
-        #mobileControls {
-          display: block;
-        }
-      }
-
-      /* Hide mobile controls when username form is visible */
-      #usernameForm:not([style*="display: none"]) ~ #mobileControls {
+      /* Hide while the username form is showing.
+         The form wrapper has z-index:30 and covers the screen;
+         we also hide the controls so they don't intercept the Start button. */
+      #mobileControls.hidden {
         display: none !important;
       }
 
@@ -189,12 +186,6 @@
         text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
         letter-spacing: 1px;
       }
-
-      @media (pointer: coarse) {
-        #mobileControls {
-          display: block;
-        }
-      }
     </style>
   </head>
   <body>
@@ -277,8 +268,8 @@
       </div>
       <!-- username input end -->
 
-      <!-- Mobile controls -->
-      <div id="mobileControls">
+      <!-- Mobile controls — hidden until game starts, shown by frontend.js -->
+      <div id="mobileControls" class="hidden">
         <div id="joystickContainer">
           <div id="joystickBase">
             <div id="joystickThumb"></div>
