@@ -216,6 +216,45 @@ measurePing()
 let animationId
 let lastFrameTimestamp = performance.now()
 
+// Draw red crosshair on canvas controlled by fire button drag
+function drawCanvasCrosshair() {
+  c.strokeStyle = 'rgba(239, 68, 68, 0.8)' // Red
+  c.lineWidth = 2
+  c.lineCap = 'round'
+
+  const x = fireButtonCrosshairX
+  const y = fireButtonCrosshairY
+  const size = 20
+
+  // Vertical line
+  c.beginPath()
+  c.moveTo(x, y - size)
+  c.lineTo(x, y - size / 2)
+  c.stroke()
+
+  c.beginPath()
+  c.moveTo(x, y + size)
+  c.lineTo(x, y + size / 2)
+  c.stroke()
+
+  // Horizontal line
+  c.beginPath()
+  c.moveTo(x - size, y)
+  c.lineTo(x - size / 2, y)
+  c.stroke()
+
+  c.beginPath()
+  c.moveTo(x + size, y)
+  c.lineTo(x + size / 2, y)
+  c.stroke()
+
+  // Center dot
+  c.fillStyle = 'rgba(239, 68, 68, 0.9)' // Red dot
+  c.beginPath()
+  c.arc(x, y, 3, 0, Math.PI * 2)
+  c.fill()
+}
+
 function animate() {
   animationId = requestAnimationFrame(animate)
 
@@ -656,45 +695,6 @@ function shootFromFireButton() {
     y: player.y,
     angle
   })
-}
-
-// Draw red crosshair on canvas controlled by fire button drag
-function drawCanvasCrosshair() {
-  c.strokeStyle = 'rgba(239, 68, 68, 0.8)' // Red
-  c.lineWidth = 2
-  c.lineCap = 'round'
-
-  const x = fireButtonCrosshairX
-  const y = fireButtonCrosshairY
-  const size = 20
-
-  // Vertical line
-  c.beginPath()
-  c.moveTo(x, y - size)
-  c.lineTo(x, y - size / 2)
-  c.stroke()
-
-  c.beginPath()
-  c.moveTo(x, y + size)
-  c.lineTo(x, y + size / 2)
-  c.stroke()
-
-  // Horizontal line
-  c.beginPath()
-  c.moveTo(x - size, y)
-  c.lineTo(x - size / 2, y)
-  c.stroke()
-
-  c.beginPath()
-  c.moveTo(x + size, y)
-  c.lineTo(x + size / 2, y)
-  c.stroke()
-
-  // Center dot
-  c.fillStyle = 'rgba(239, 68, 68, 0.9)' // Red dot
-  c.beginPath()
-  c.arc(x, y, 3, 0, Math.PI * 2)
-  c.fill()
 }
 
 // Only add fire button listeners if the button exists
