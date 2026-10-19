@@ -548,13 +548,15 @@ if (joystickContainer && joystickThumb) {
 // Mobile FIRE button — press and drag to aim, auto-fires while held
 const fireButton = document.getElementById('fireButton')
 const fireButtonCanvas = document.getElementById('fireButtonCanvas')
-const fireCtx = fireButtonCanvas.getContext('2d')
+const fireCtx = fireButtonCanvas ? fireButtonCanvas.getContext('2d') : null
 
 // Get the device pixel ratio and scale the canvas
 const fireButtonDPR = window.devicePixelRatio || 1
-fireButtonCanvas.width = 100 * fireButtonDPR
-fireButtonCanvas.height = 100 * fireButtonDPR
-fireCtx.scale(fireButtonDPR, fireButtonDPR)
+if (fireButtonCanvas && fireCtx) {
+  fireButtonCanvas.width = 100 * fireButtonDPR
+  fireButtonCanvas.height = 100 * fireButtonDPR
+  fireCtx.scale(fireButtonDPR, fireButtonDPR)
+}
 
 let fireButtonActive = false
 let fireButtonAimX = 50  // aim point relative to button center
@@ -566,6 +568,8 @@ let fireButtonCrosshairX = WORLD_WIDTH / 2
 let fireButtonCrosshairY = WORLD_HEIGHT / 2
 
 function drawFireButton() {
+  if (!fireCtx) return
+  
   const size = 100
   const center = size / 2
 
@@ -692,80 +696,86 @@ function drawCanvasCrosshair() {
   c.fill()
 }
 
-fireButton.addEventListener('pointerdown', (event) => {
-  event.preventDefault()
-  event.stopPropagation()
-
-  fireButtonActive = true
-  fireButton.classList.add('active')
-  fireButton.setPointerCapture(event.pointerId)
-
-  // Immediate shot
-  shootFromFireButton()
-
-  // Continuous fire while held
-  fireButtonInterval = setInterval(shootFromFireButton, FIRE_COOLDOWN)
-
+// Only add fire button listeners if the button exists
+if (fireButton && fireButtonCanvas && fireCtx) {
+  // Draw initial button
   drawFireButton()
-})
 
-fireButton.addEventListener('pointermove', (event) => {
-  if (!fireButtonActive) return
-  event.preventDefault()
+  fireButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
 
-  // Get position relative to button
-  const rect = fireButton.getBoundingClientRect()
-  fireButtonAimX = event.clientX - rect.left
-  fireButtonAimY = event.clientY - rect.top
+    fireButtonActive = true
+    fireButton.classList.add('active')
+    fireButton.setPointerCapture(event.pointerId)
 
-  // Clamp to button bounds
-  fireButtonAimX = Math.max(5, Math.min(95, fireButtonAimX))
-  fireButtonAimY = Math.max(5, Math.min(95, fireButtonAimY))
+    // Immediate shot
+    shootFromFireButton()
 
-  // Update canvas crosshair position based on fire button drag
-  // Normalize button position (0-100) to world distance
-  const normalizedX = (fireButtonAimX - 50) / 50  // -1 to 1
-  const normalizedY = (fireButtonAimY - 50) / 50  // -1 to 1
+    // Continuous fire while held
+    fireButtonInterval = setInterval(shootFromFireButton, FIRE_COOLDOWN)
 
-  const player = frontEndPlayers[socket.id]
-  if (player) {
-    const maxDistance = 150
-    fireButtonCrosshairX = player.x + normalizedX * maxDistance
-    fireButtonCrosshairY = player.y + normalizedY * maxDistance
+    drawFireButton()
+  })
 
-    // Clamp to world bounds
-    fireButtonCrosshairX = Math.max(0, Math.min(WORLD_WIDTH, fireButtonCrosshairX))
-    fireButtonCrosshairY = Math.max(0, Math.min(WORLD_HEIGHT, fireButtonCrosshairY))
+  fireButton.addEventListener('pointermove', (event) => {
+    if (!fireButtonActive) return
+    event.preventDefault()
+
+    // Get position relative to button
+    const rect = fireButton.getBoundingClientRect()
+    fireButtonAimX = event.clientX - rect.left
+    fireButtonAimY = event.clientY - rect.top
+
+    // Clamp to button bounds
+    fireButtonAimX = Math.max(5, Math.min(95, fireButtonAimX))
+    fireButtonAimY = Math.max(5, Math.min(95, fireButtonAimY))
+
+    // Update canvas crosshair position based on fire button drag
+    // Normalize button position (0-100) to world distance
+    const normalizedX = (fireButtonAimX - 50) / 50  // -1 to 1
+    const normalizedY = (fireButtonAimY - 50) / 50  // -1 to 1
+
+    const player = frontEndPlayers[socket.id]
+    if (player) {
+      const maxDistance = 150
+      fireButtonCrosshairX = player.x + normalizedX * maxDistance
+      fireButtonCrosshairY = player.y + normalizedY * maxDistance
+
+      // Clamp to world bounds
+      fireButtonCrosshairX = Math.max(0, Math.min(WORLD_WIDTH, fireButtonCrosshairX))
+      fireButtonCrosshairY = Math.max(0, Math.min(WORLD_HEIGHT, fireButtonCrosshairY))
+    }
+
+    drawFireButton()
+  })
+
+  const endFireButton = (event) => {
+    if (!fireButtonActive) return
+    event.preventDefault()
+
+    fireButtonActive = false
+    fireButton.classList.remove('active')
+
+    if (fireButtonInterval) {
+      clearInterval(fireButtonInterval)
+      fireButtonInterval = null
+    }
+
+    if (fireButton.hasPointerCapture(event.pointerId)) {
+      fireButton.releasePointerCapture(event.pointerId)
+    }
+
+    fireButtonAimX = 50
+    fireButtonAimY = 50
+
+    drawFireButton()
   }
 
-  drawFireButton()
-})
-
-const endFireButton = (event) => {
-  if (!fireButtonActive) return
-  event.preventDefault()
-
-  fireButtonActive = false
-  fireButton.classList.remove('active')
-
-  if (fireButtonInterval) {
-    clearInterval(fireButtonInterval)
-    fireButtonInterval = null
-  }
-
-  if (fireButton.hasPointerCapture(event.pointerId)) {
-    fireButton.releasePointerCapture(event.pointerId)
-  }
-
-  fireButtonAimX = 50
-  fireButtonAimY = 50
-
-  drawFireButton()
+  fireButton.addEventListener('pointerup', endFireButton)
+  fireButton.addEventListener('pointercancel', endFireButton)
+  fireButton.addEventListener('pointerleave', endFireButton)
 }
-
-fireButton.addEventListener('pointerup', endFireButton)
-fireButton.addEventListener('pointercancel', endFireButton)
-fireButton.addEventListener('pointerleave', endFireButton)
 
 // Reset all input states on window blur/visibility change
 window.addEventListener('blur', () => {
