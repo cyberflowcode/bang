@@ -13,15 +13,27 @@ A real-time 2D multiplayer canvas shooter game built with Node.js, Express, and 
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js (v18 or higher recommended)
+- PostgreSQL (for local development)
+
 ### Installation
 
 ```bash
 npm install
 ```
 
-### Running Locally
+### Local Database Setup
 
-The game uses SQLite for local development (no database setup required):
+1. Install PostgreSQL on your system
+2. Create a database:
+   ```bash
+   createdb bang
+   ```
+3. Copy `.env.example` to `.env` (optional, defaults to `postgresql://localhost:5432/bang`)
+
+### Running Locally
 
 ```bash
 npm start
@@ -50,7 +62,7 @@ The `DATABASE_URL` environment variable will be automatically set by Railway, an
 ## Architecture
 
 - **Backend**: Node.js with Express and Socket.IO
-- **Database**: SQLite (local) or PostgreSQL (Railway)
+- **Database**: PostgreSQL (local and Railway)
 - **Frontend**: HTML5 Canvas with vanilla JavaScript
 - **Real-time**: Socket.IO for player/projectile synchronization
 
