@@ -24,8 +24,6 @@ const PROJECTILE_RADIUS = 5
 let projectileId = 0
 
 io.on('connection', (socket) => {
-  console.log('a user connected')
-
   io.emit('updatePlayers', backEndPlayers)
 
   socket.on('shoot', ({ x, y, angle }) => {
@@ -42,8 +40,6 @@ io.on('connection', (socket) => {
       velocity,
       playerId: socket.id
     }
-
-    console.log(backEndProjectiles)
   })
 
   socket.on('initGame', ({ username, width, height }) => {
@@ -66,7 +62,6 @@ io.on('connection', (socket) => {
   })
 
   socket.on('disconnect', (reason) => {
-    console.log(reason)
     delete backEndPlayers[socket.id]
     io.emit('updatePlayers', backEndPlayers)
   })
@@ -150,7 +145,6 @@ setInterval(() => {
         if (backEndPlayers[backEndProjectiles[id].playerId])
           backEndPlayers[backEndProjectiles[id].playerId].score++
 
-        console.log(backEndPlayers[backEndProjectiles[id].playerId])
         delete backEndProjectiles[id]
         delete backEndPlayers[playerId]
         break
@@ -165,5 +159,3 @@ setInterval(() => {
 server.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
-
-console.log('server did load')
