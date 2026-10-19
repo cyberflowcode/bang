@@ -456,7 +456,7 @@ if (joystickContainer && joystickThumb) {
 }
 
 // Mobile FIRE button handler
-const FIRE_COOLDOWN = 200 // milliseconds
+const FIRE_COOLDOWN = 2000 // milliseconds — must match server FIRE_COOLDOWN
 let fireInterval = null
 
 const fireButton = document.getElementById('fireButton')
