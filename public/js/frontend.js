@@ -240,10 +240,13 @@ function getJoystickMovement() {
     return { dx: 0, dy: 0 }
   }
 
-  // Normalize and scale to SPEED
-  const normalizedMagnitude = Math.min(joystick.magnitude, JOYSTICK_MAX_DISTANCE) / JOYSTICK_MAX_DISTANCE
-  const dx = (joystick.deltaX / JOYSTICK_MAX_DISTANCE) * SPEED * normalizedMagnitude
-  const dy = (joystick.deltaY / JOYSTICK_MAX_DISTANCE) * SPEED * normalizedMagnitude
+  // joystick.deltaX/Y are already clamped to ±JOYSTICK_MAX_DISTANCE in the
+  // pointer/touch move handler, so dividing by JOYSTICK_MAX_DISTANCE yields a
+  // normalized -1..1 vector. Multiply ONCE by SPEED. The previous code
+  // multiplied by normalizedMagnitude too, which squared the magnitude and
+  // made the player feel dead/sluggish at low joystick deflection.
+  const dx = (joystick.deltaX / JOYSTICK_MAX_DISTANCE) * SPEED
+  const dy = (joystick.deltaY / JOYSTICK_MAX_DISTANCE) * SPEED
 
   return { dx, dy }
 }
@@ -395,62 +398,68 @@ if (joystickContainer && joystickThumb) {
   joystickContainer.addEventListener('pointercancel', endJoystick)
   joystickContainer.addEventListener('pointerleave', endJoystick)
 
-  // Touch events fallback (for older mobile browsers)
-  joystickContainer.addEventListener('touchstart', (event) => {
-    event.preventDefault()
-    const touch = event.touches[0]
-    joystick.active = true
-    joystick.pointerId = touch.identifier
-    joystick.startX = touch.clientX
-    joystick.startY = touch.clientY
-    joystick.deltaX = 0
-    joystick.deltaY = 0
-    joystick.magnitude = 0
-  }, { passive: false })
+  // Touch events fallback — only register on browsers WITHOUT PointerEvent
+  // support. Modern mobile browsers fire BOTH pointer and touch events for
+  // the same physical touch; registering both causes double-handling and
+  // corrupts joystick.pointerId tracking (touch.identifier vs pointer id),
+  // which breaks the joystick and double-fires the shoot button.
+  if (!window.PointerEvent) {
+    joystickContainer.addEventListener('touchstart', (event) => {
+      event.preventDefault()
+      const touch = event.touches[0]
+      joystick.active = true
+      joystick.pointerId = touch.identifier
+      joystick.startX = touch.clientX
+      joystick.startY = touch.clientY
+      joystick.deltaX = 0
+      joystick.deltaY = 0
+      joystick.magnitude = 0
+    }, { passive: false })
 
-  joystickContainer.addEventListener('touchmove', (event) => {
-    if (!joystick.active) return
-    event.preventDefault()
+    joystickContainer.addEventListener('touchmove', (event) => {
+      if (!joystick.active) return
+      event.preventDefault()
 
-    const touch = event.touches[0]
-    const deltaX = touch.clientX - joystick.startX
-    const deltaY = touch.clientY - joystick.startY
-    const magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const touch = event.touches[0]
+      const deltaX = touch.clientX - joystick.startX
+      const deltaY = touch.clientY - joystick.startY
+      const magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-    // Clamp to max distance
-    const clampedMagnitude = Math.min(magnitude, JOYSTICK_MAX_DISTANCE)
-    const angle = Math.atan2(deltaY, deltaX)
+      // Clamp to max distance
+      const clampedMagnitude = Math.min(magnitude, JOYSTICK_MAX_DISTANCE)
+      const angle = Math.atan2(deltaY, deltaX)
 
-    joystick.deltaX = Math.cos(angle) * clampedMagnitude
-    joystick.deltaY = Math.sin(angle) * clampedMagnitude
-    joystick.magnitude = clampedMagnitude
+      joystick.deltaX = Math.cos(angle) * clampedMagnitude
+      joystick.deltaY = Math.sin(angle) * clampedMagnitude
+      joystick.magnitude = clampedMagnitude
 
-    // Update thumb position
-    joystickThumb.style.transform = `translate(${joystick.deltaX}px, ${joystick.deltaY}px)`
-  }, { passive: false })
+      // Update thumb position
+      joystickThumb.style.transform = `translate(${joystick.deltaX}px, ${joystick.deltaY}px)`
+    }, { passive: false })
 
-  const endJoystickTouch = (event) => {
-    if (!joystick.active) return
-    event.preventDefault()
+    const endJoystickTouch = (event) => {
+      if (!joystick.active) return
+      event.preventDefault()
 
-    joystick.active = false
-    joystick.pointerId = null
-    joystick.deltaX = 0
-    joystick.deltaY = 0
-    joystick.magnitude = 0
+      joystick.active = false
+      joystick.pointerId = null
+      joystick.deltaX = 0
+      joystick.deltaY = 0
+      joystick.magnitude = 0
 
-    joystickThumb.style.transform = 'translate(0, 0)'
+      joystickThumb.style.transform = 'translate(0, 0)'
+    }
+
+    joystickContainer.addEventListener('touchend', endJoystickTouch)
+    joystickContainer.addEventListener('touchcancel', endJoystickTouch)
   }
-
-  joystickContainer.addEventListener('touchend', endJoystickTouch)
-  joystickContainer.addEventListener('touchcancel', endJoystickTouch)
 }
 
 // Mobile FIRE button handler
-const fireButton = document.getElementById('fireButton')
 const FIRE_COOLDOWN = 200 // milliseconds
 let fireInterval = null
 
+const fireButton = document.getElementById('fireButton')
 if (fireButton) {
   const shootInMovementDirection = () => {
     const player = frontEndPlayers[socket.id]
@@ -481,8 +490,8 @@ if (fireButton) {
       if (nearestEnemy) {
         angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x)
       } else {
-        // No enemies, shoot in a default direction (right)
-        angle = 0
+        // No enemies, shoot in a default direction (up)
+        angle = -Math.PI / 2
       }
     }
 
@@ -492,9 +501,6 @@ if (fireButton) {
       angle
     })
   }
-
-  // Store interval ID for cleanup
-  fireButton.dataset.fireInterval = 'null'
 
   // Pointer events (for modern browsers)
   fireButton.addEventListener('pointerdown', (event) => {
@@ -533,36 +539,39 @@ if (fireButton) {
   fireButton.addEventListener('pointercancel', endFire)
   fireButton.addEventListener('pointerleave', endFire)
 
-  // Touch events fallback (for older mobile browsers)
-  fireButton.addEventListener('touchstart', (event) => {
-    event.preventDefault()
-    fireButton.classList.add('active')
+  // Touch events fallback — only register on browsers WITHOUT PointerEvent
+  // support (see the joystick block above for the full rationale).
+  if (!window.PointerEvent) {
+    fireButton.addEventListener('touchstart', (event) => {
+      event.preventDefault()
+      fireButton.classList.add('active')
 
-    // Clear any existing interval
-    if (fireInterval) {
-      clearInterval(fireInterval)
-      fireInterval = null
+      // Clear any existing interval
+      if (fireInterval) {
+        clearInterval(fireInterval)
+        fireInterval = null
+      }
+
+      // Immediate shot
+      shootInMovementDirection()
+
+      // Continuous shooting
+      fireInterval = setInterval(shootInMovementDirection, FIRE_COOLDOWN)
+    }, { passive: false })
+
+    const endFireTouch = (event) => {
+      event.preventDefault()
+      fireButton.classList.remove('active')
+
+      if (fireInterval) {
+        clearInterval(fireInterval)
+        fireInterval = null
+      }
     }
 
-    // Immediate shot
-    shootInMovementDirection()
-
-    // Continuous shooting
-    fireInterval = setInterval(shootInMovementDirection, FIRE_COOLDOWN)
-  }, { passive: false })
-
-  const endFireTouch = (event) => {
-    event.preventDefault()
-    fireButton.classList.remove('active')
-
-    if (fireInterval) {
-      clearInterval(fireInterval)
-      fireInterval = null
-    }
+    fireButton.addEventListener('touchend', endFireTouch)
+    fireButton.addEventListener('touchcancel', endFireTouch)
   }
-
-  fireButton.addEventListener('touchend', endFireTouch)
-  fireButton.addEventListener('touchcancel', endFireTouch)
 }
 
 // Reset all input states on window blur/visibility change

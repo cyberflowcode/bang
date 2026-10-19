@@ -1,11 +1,13 @@
 // Rapid fire state
 let isMouseDown = false
 let lastShotTime = 0
-const FIRE_COOLDOWN = 200 // milliseconds
 
-// Logical game world size (must match frontend.js)
-const WORLD_WIDTH = 1024
-const WORLD_HEIGHT = 576
+// NOTE: FIRE_COOLDOWN, WORLD_WIDTH, and WORLD_HEIGHT are declared at the top
+// level of frontend.js (which loads before this file). Because both files are
+// classic <script> tags sharing one global lexical scope, re-declaring them
+// here as `const` throws a SyntaxError that aborts this ENTIRE file — which
+// is what broke desktop firing (no mouse handlers ever registered).
+// We simply reuse the bindings from frontend.js below.
 
 // Check if event target is a mobile control
 function isMobileControl(element) {
