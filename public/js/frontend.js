@@ -374,6 +374,7 @@ if (joystickContainer && joystickThumb) {
   // Pointer events (for modern browsers)
   joystickContainer.addEventListener('pointerdown', (event) => {
     event.preventDefault()
+    event.stopPropagation() // prevent canvas pointerdown from firing
     joystick.active = true
     joystick.pointerId = event.pointerId
     joystick.startX = event.clientX
@@ -490,8 +491,8 @@ if (joystickContainer && joystickThumb) {
 const FIRE_COOLDOWN = 2000 // milliseconds — must match server FIRE_COOLDOWN
 
 canvas.addEventListener('pointerdown', (event) => {
-  // Ignore the joystick's pointer
-  if (joystick.active && event.pointerId === joystick.pointerId) return
+  // Ignore touches that started on the joystick
+  if (event.target.closest('#joystickContainer')) return
 
   const player = frontEndPlayers[socket.id]
   if (!player) return
