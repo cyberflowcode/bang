@@ -16,7 +16,7 @@ A real-time 2D multiplayer canvas shooter game built with Node.js, Express, and 
 ### Prerequisites
 
 - Node.js (v18 or higher recommended)
-- PostgreSQL (for local development)
+- PostgreSQL (optional, for persistent statistics)
 
 ### Installation
 
@@ -24,22 +24,30 @@ A real-time 2D multiplayer canvas shooter game built with Node.js, Express, and 
 npm install
 ```
 
-### Local Database Setup
-
-1. Install PostgreSQL on your system
-2. Create a database:
-   ```bash
-   createdb bang
-   ```
-3. Copy `.env.example` to `.env` (optional, defaults to `postgresql://localhost:5432/bang`)
-
 ### Running Locally
+
+The game will work immediately without any database setup:
 
 ```bash
 npm start
 ```
 
 Visit `http://localhost:3000` in your browser.
+
+**Note:** Without PostgreSQL, player statistics will be stored in-memory and won't persist after server restart. For persistent statistics, set up PostgreSQL below.
+
+### Optional: Local Database Setup (for persistent statistics)
+
+1. Install PostgreSQL on your system
+2. Create a database:
+   ```bash
+   createdb bang
+   ```
+3. Create a `.env` file with:
+   ```
+   DATABASE_URL=postgresql://localhost:5432/bang
+   ```
+4. Restart the game
 
 ### Railway Deployment
 

@@ -7,52 +7,104 @@ const server = http.createServer(app)
 const { Server } = require('socket.io')
 const io = new Server(server, { pingInterval: 2000, pingTimeout: 5000 })
 
-// PostgreSQL database setup
-const { Pool } = require('pg')
+// Database setup - PostgreSQL for production, in-memory fallback for local dev
+let db
+let usePostgreSQL = false
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://localhost:5432/bang'
+if (process.env.DATABASE_URL) {
+  // PostgreSQL for Railway/deployment
+  const { Pool } = require('pg')
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
-})
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  })
 
-const db = {
-  async exec(sql) {
-    await pool.query(sql)
-  },
-  prepare(sql) {
-    // Convert ? to $1, $2, etc. for PostgreSQL
-    let paramIndex = 1
-    const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
+  db = {
+    async exec(sql) {
+      await pool.query(sql)
+    },
+    prepare(sql) {
+      let paramIndex = 1
+      const pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`)
 
-    return {
-      async run(...params) {
-        return await pool.query(pgSql, params)
-      },
-      async get(...params) {
-        const result = await pool.query(pgSql, params)
-        return result.rows[0]
-      },
-      async all(...params) {
-        const result = await pool.query(pgSql, params)
-        return result.rows
+      return {
+        async run(...params) {
+          return await pool.query(pgSql, params)
+        },
+        async get(...params) {
+          const result = await pool.query(pgSql, params)
+          return result.rows[0]
+        },
+        async all(...params) {
+          const result = await pool.query(pgSql, params)
+          return result.rows
+        }
+      }
+    }
+  }
+
+  usePostgreSQL = true
+
+  // Initialize PostgreSQL schema
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS players (
+      player_id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      lifetime_kills INTEGER DEFAULT 0,
+      created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lifetime_kills ON players(lifetime_kills DESC);
+  `).catch(err => console.error('PostgreSQL schema init error:', err))
+} else {
+  // In-memory fallback for local development (no persistence)
+  console.log('⚠️  No DATABASE_URL set - using in-memory storage (statistics will not persist)')
+
+  const memoryStore = new Map()
+
+  db = {
+    async exec(sql) {
+      // No-op for in-memory
+    },
+    prepare(sql) {
+      return {
+        async run(...params) {
+          // Parse simple INSERT/UPDATE operations
+          if (sql.includes('INSERT') || sql.includes('UPDATE')) {
+            const playerId = params[0]
+            const username = params[1]
+
+            if (sql.includes('INSERT')) {
+              memoryStore.set(playerId, {
+                player_id: playerId,
+                username: username,
+                lifetime_kills: 0,
+                created_at: Math.floor(Date.now() / 1000)
+              })
+            } else if (sql.includes('UPDATE') && sql.includes('lifetime_kills')) {
+              const player = memoryStore.get(playerId)
+              if (player) {
+                player.lifetime_kills++
+                memoryStore.set(playerId, player)
+              }
+            }
+          }
+        },
+        async get(...params) {
+          return memoryStore.get(params[0]) || null
+        },
+        async all(...params) {
+          // Return all players sorted by lifetime_kills
+          return Array.from(memoryStore.values())
+            .sort((a, b) => b.lifetime_kills - a.lifetime_kills || a.created_at - b.created_at)
+            .slice(0, 10)
+            .map(p => ({ username: p.username, lifetime_kills: p.lifetime_kills }))
+        }
       }
     }
   }
 }
-
-// Initialize PostgreSQL schema
-pool.query(`
-  CREATE TABLE IF NOT EXISTS players (
-    player_id TEXT PRIMARY KEY,
-    username TEXT NOT NULL,
-    lifetime_kills INTEGER DEFAULT 0,
-    created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_lifetime_kills ON players(lifetime_kills DESC);
-`).catch(err => console.error('PostgreSQL schema init error:', err))
 
 const port = process.env.PORT || 3000
 
