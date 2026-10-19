@@ -212,12 +212,19 @@ setInterval(measurePing, 2000)
 measurePing()
 
 // ── Animation loop ───────────────────────────────────────────────────────────
+// ── Animation loop ───────────────────────────────────────────────────────────
 let animationId
+let lastFrameTimestamp = performance.now()
+
 function animate() {
   animationId = requestAnimationFrame(animate)
 
-  // ── FPS calculation ──────────────────────────────────────────────────────
   const now = performance.now()
+  // Delta time in seconds, capped at 100ms to avoid huge jumps after tab switch
+  const dt = Math.min((now - lastFrameTimestamp) / 1000, 0.1)
+  lastFrameTimestamp = now
+
+  // ── FPS calculation ──────────────────────────────────────────────────────
   frameCount++
   const elapsed = now - lastFrameTime
   if (elapsed >= 500) {               // update display every 500ms
@@ -241,13 +248,14 @@ function animate() {
   for (const id in frontEndPlayers) {
     const frontEndPlayer = frontEndPlayers[id]
 
-    // linear interpolation — 0.15 gives smooth catchup without the
-    // bouncy/rubbery feel that 0.5 causes at lower movement speeds
+    // Delta-time lerp — converges at the same visual rate regardless of FPS.
+    // Factor: 1 - e^(-k * dt). k=8 means ~55% catchup per frame at 60fps,
+    // same feel at 30fps or 120fps.
     if (frontEndPlayer.target) {
-      frontEndPlayers[id].x +=
-        (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.3
-      frontEndPlayers[id].y +=
-        (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.3
+      const k = 8
+      const alpha = 1 - Math.exp(-k * dt)
+      frontEndPlayers[id].x += (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * alpha
+      frontEndPlayers[id].y += (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * alpha
     }
 
     frontEndPlayer.draw()
@@ -337,16 +345,20 @@ setInterval(() => {
     dy = joystickMove.dy
   }
 
+  // Normalize diagonal so moving at 45° isn't faster than cardinal
+  const magnitude = Math.sqrt(dx * dx + dy * dy)
+  if (magnitude > SPEED) {
+    dx = (dx / magnitude) * SPEED
+    dy = (dy / magnitude) * SPEED
+  }
+
   // Emit movement if any
   if (dx !== 0 || dy !== 0) {
     sequenceNumber++
     playerInputs.push({ sequenceNumber, dx, dy })
 
-    // Emit combined movement as keydown events for server compatibility
-    if (dy < 0) socket.emit('keydown', { keycode: 'KeyW', sequenceNumber })
-    if (dx < 0) socket.emit('keydown', { keycode: 'KeyA', sequenceNumber })
-    if (dy > 0) socket.emit('keydown', { keycode: 'KeyS', sequenceNumber })
-    if (dx > 0) socket.emit('keydown', { keycode: 'KeyD', sequenceNumber })
+    // Single atomic move event — no more two separate keydown emits for diagonal
+    socket.emit('move', { dx, dy, sequenceNumber })
   }
 }, 15)
 

@@ -279,9 +279,34 @@ io.on('connection', (socket) => {
     if (playerSides.bottom > 576)
       backEndPlayers[socket.id].y = 576 - backEndPlayer.radius
   })
+
+  // 'move' event — single atomic step with pre-normalized dx/dy.
+  // Replaces sending two separate keydown events for diagonal movement,
+  // which was causing uneven step sizes and extra server processing.
+  socket.on('move', ({ dx, dy, sequenceNumber }) => {
+    const player = backEndPlayers[socket.id]
+    if (!player) return
+
+    player.sequenceNumber = sequenceNumber
+
+    // Clamp magnitude to SPEED so the client can't send oversized steps
+    const magnitude = Math.sqrt(dx * dx + dy * dy)
+    if (magnitude > SPEED) {
+      const scale = SPEED / magnitude
+      dx *= scale
+      dy *= scale
+    }
+
+    player.x += dx
+    player.y += dy
+
+    // World boundary clamp
+    player.x = Math.max(player.radius, Math.min(1024 - player.radius, player.x))
+    player.y = Math.max(player.radius, Math.min(576 - player.radius, player.y))
+  })
 })
 
-// backend ticker
+// backend ticker — 50hz (20ms) for smooth position/projectile broadcast
 setInterval(async () => {
   // update projectile positions
   for (const id in backEndProjectiles) {
@@ -347,7 +372,7 @@ setInterval(async () => {
 
   io.emit('updateProjectiles', backEndProjectiles)
   io.emit('updatePlayers', backEndPlayers)
-}, 15)
+}, 20)
 
 server.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
