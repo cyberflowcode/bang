@@ -38,6 +38,7 @@ window.addEventListener('resize', resizeGame)
 
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
+const frontEndParticles = [] // death explosion particles
 
 socket.on('updateLeaderboard', (leaderboardData) => {
   const leaderboardEl = document.querySelector('#topKillsLeaderboard')
@@ -165,6 +166,23 @@ socket.on('updatePlayers', (backEndPlayers) => {
         if (mobileControls) mobileControls.classList.add('hidden')
       }
 
+      // Spawn death explosion particles at the player's last position
+      const deadPlayer = frontEndPlayers[id]
+      for (let i = 0; i < 20; i++) {
+        const angle = (Math.PI * 2 / 20) * i
+        const speed = Math.random() * 4 + 1
+        frontEndParticles.push(new Particle(
+          deadPlayer.x,
+          deadPlayer.y,
+          Math.random() * 4 + 2,  // radius 2–6
+          deadPlayer.color,
+          {
+            x: Math.cos(angle) * speed,
+            y: Math.sin(angle) * speed
+          }
+        ))
+      }
+
       delete frontEndPlayers[id]
     }
   }
@@ -196,10 +214,13 @@ function animate() {
     frontEndProjectile.draw()
   }
 
-  // for (let i = frontEndProjectiles.length - 1; i >= 0; i--) {
-  //   const frontEndProjectile = frontEndProjectiles[i]
-  //   frontEndProjectile.update()
-  // }
+  // Update death particles — draw, move, fade; remove when invisible
+  for (let i = frontEndParticles.length - 1; i >= 0; i--) {
+    frontEndParticles[i].update()
+    if (frontEndParticles[i].alpha <= 0) {
+      frontEndParticles.splice(i, 1)
+    }
+  }
 }
 
 animate()
