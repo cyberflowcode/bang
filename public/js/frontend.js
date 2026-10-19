@@ -273,6 +273,9 @@ function animate() {
       frontEndParticles.splice(i, 1)
     }
   }
+
+  // Draw red crosshair on canvas (mobile fire button aiming)
+  drawCanvasCrosshair()
 }
 
 animate()
@@ -558,6 +561,10 @@ let fireButtonAimX = 50  // aim point relative to button center
 let fireButtonAimY = 50
 let fireButtonInterval = null
 
+// Crosshair on canvas (controlled by fire button drag)
+let fireButtonCrosshairX = WORLD_WIDTH / 2
+let fireButtonCrosshairY = WORLD_HEIGHT / 2
+
 function drawFireButton() {
   const size = 100
   const center = size / 2
@@ -636,14 +643,53 @@ function shootFromFireButton() {
   const player = frontEndPlayers[socket.id]
   if (!player) return
 
-  // Get angle from button center to aim point
-  const angle = Math.atan2(fireButtonAimY - 50, fireButtonAimX - 50)
+  // Get angle from player to crosshair position on canvas
+  const angle = Math.atan2(fireButtonCrosshairY - player.y, fireButtonCrosshairX - player.x)
 
   socket.emit('shoot', {
     x: player.x,
     y: player.y,
     angle
   })
+}
+
+// Draw red crosshair on canvas controlled by fire button drag
+function drawCanvasCrosshair() {
+  c.strokeStyle = 'rgba(239, 68, 68, 0.8)' // Red
+  c.lineWidth = 2
+  c.lineCap = 'round'
+
+  const x = fireButtonCrosshairX
+  const y = fireButtonCrosshairY
+  const size = 20
+
+  // Vertical line
+  c.beginPath()
+  c.moveTo(x, y - size)
+  c.lineTo(x, y - size / 2)
+  c.stroke()
+
+  c.beginPath()
+  c.moveTo(x, y + size)
+  c.lineTo(x, y + size / 2)
+  c.stroke()
+
+  // Horizontal line
+  c.beginPath()
+  c.moveTo(x - size, y)
+  c.lineTo(x - size / 2, y)
+  c.stroke()
+
+  c.beginPath()
+  c.moveTo(x + size, y)
+  c.lineTo(x + size / 2, y)
+  c.stroke()
+
+  // Center dot
+  c.fillStyle = 'rgba(239, 68, 68, 0.9)' // Red dot
+  c.beginPath()
+  c.arc(x, y, 3, 0, Math.PI * 2)
+  c.fill()
 }
 
 fireButton.addEventListener('pointerdown', (event) => {
@@ -675,6 +721,22 @@ fireButton.addEventListener('pointermove', (event) => {
   // Clamp to button bounds
   fireButtonAimX = Math.max(5, Math.min(95, fireButtonAimX))
   fireButtonAimY = Math.max(5, Math.min(95, fireButtonAimY))
+
+  // Update canvas crosshair position based on fire button drag
+  // Normalize button position (0-100) to world distance
+  const normalizedX = (fireButtonAimX - 50) / 50  // -1 to 1
+  const normalizedY = (fireButtonAimY - 50) / 50  // -1 to 1
+
+  const player = frontEndPlayers[socket.id]
+  if (player) {
+    const maxDistance = 150
+    fireButtonCrosshairX = player.x + normalizedX * maxDistance
+    fireButtonCrosshairY = player.y + normalizedY * maxDistance
+
+    // Clamp to world bounds
+    fireButtonCrosshairX = Math.max(0, Math.min(WORLD_WIDTH, fireButtonCrosshairX))
+    fireButtonCrosshairY = Math.max(0, Math.min(WORLD_HEIGHT, fireButtonCrosshairY))
+  }
 
   drawFireButton()
 })
