@@ -123,9 +123,9 @@ const PROJECTILE_RADIUS = 5
 let projectileId = 0
 
 // Rapid fire configuration
-const FIRE_COOLDOWN = 2000 // milliseconds
+const FIRE_COOLDOWN = 1000 // milliseconds
 const MAX_PROJECTILES_PER_PLAYER = 20
-const BULLET_SPEED = 10
+const BULLET_SPEED = 15
 
 // Player cooldown tracking
 const playerCooldowns = {}

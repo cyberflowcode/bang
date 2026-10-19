@@ -308,7 +308,7 @@ const JOYSTICK_MAX_DISTANCE = 35
 const JOYSTICK_DEAD_ZONE = 5
 
 const SPEED = 5
-const FIRE_COOLDOWN = 2000
+const FIRE_COOLDOWN = 1000
 const playerInputs = []
 let sequenceNumber = 0
 
