@@ -54,8 +54,10 @@ socket.on('updateLeaderboard', (leaderboardData) => {
       rankStyle = 'color: #cd7f32; font-weight: bold;' // Bronze
     }
 
+    const truncatedName = player.username.substring(0, 8)
+
     return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-      <span style="${rankStyle}">${index + 1}. ${player.username}</span>
+      <span style="${rankStyle}">${index + 1}. ${truncatedName}</span>
       <span style="color: #94a3b8;">${player.lifetimeKills}</span>
     </div>`
   }).join('')
